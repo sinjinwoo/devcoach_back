@@ -11,10 +11,13 @@ from langchain_upstage import UpstageEmbeddings
 from pinecone import Pinecone, ServerlessSpec
 from pydantic import BaseModel
 
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env'))
+
+api_key = os.getenv("UPSTAGE_API_KEY")
+
 
 # upstage models
-chat_upstage = ChatUpstage()
+chat_upstage = ChatUpstage(api_key=api_key)
 embedding_upstage = UpstageEmbeddings(model="embedding-query")
 
 pinecone_api_key = os.environ.get("PINECONE_API_KEY")
