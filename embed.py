@@ -41,6 +41,7 @@ text_splitter = RecursiveCharacterTextSplitter(
     chunk_overlap=100)
 
 # Embed the splits
+# Pinecone 인덱스에 저장 DB ensert
 
 splits = text_splitter.split_documents(docs)
 
