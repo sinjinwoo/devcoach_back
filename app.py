@@ -1,68 +1,25 @@
-import os
-from typing import List, Optional
-
-from dotenv import load_dotenv
+# pip install fastapi uvicorn openai python-dotenv
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from langchain.chains import RetrievalQA
-from langchain_pinecone import PineconeVectorStore
-from langchain_upstage import ChatUpstage
-from langchain_upstage import UpstageEmbeddings
-from pinecone import Pinecone, ServerlessSpec
 from pydantic import BaseModel
+from openai import AsyncOpenAI
+import os
+from dotenv import load_dotenv
+from fastapi.middleware.cors import CORSMiddleware
 
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env'))
+load_dotenv()  # Load .env file if present
 
-api_key = os.getenv("UPSTAGE_API_KEY")
-
-
-# upstage models
-chat_upstage = ChatUpstage(api_key=api_key)
-embedding_upstage = UpstageEmbeddings(model="embedding-query")
-
-pinecone_api_key = os.environ.get("PINECONE_API_KEY")
-pc = Pinecone(api_key=pinecone_api_key)
-index_name = "galaxy-a35"
-
-# create new index
-if index_name not in pc.list_indexes().names():
-    pc.create_index(
-        name=index_name,
-        dimension=4096,
-        metric="cosine",
-        spec=ServerlessSpec(cloud="aws", region="us-east-1"),
-    )
-
-pinecone_vectorstore = PineconeVectorStore(index=pc.Index(index_name), embedding=embedding_upstage)
-
-pinecone_retriever = pinecone_vectorstore.as_retriever(
-    search_type='mmr',  # default : similarity(유사도) / mmr 알고리즘
-    search_kwargs={"k": 3}  # 쿼리와 관련된 chunk를 3개 검색하기 (default : 4)
-)
+openai = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 app = FastAPI()
 
+# Allow CORS for local dev
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # In production, restrict this to your domain
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-class ChatMessage(BaseModel):
-    role: str
-    content: str
-
-
-class AssistantRequest(BaseModel):
-    message: str
-    thread_id: Optional[str] = None
-
-
-class ChatRequest(BaseModel):
-    messages: List[ChatMessage]  # Entire conversation for naive mode
 
 
 class MessageRequest(BaseModel):
@@ -71,54 +28,65 @@ class MessageRequest(BaseModel):
 
 @app.post("/chat")
 async def chat_endpoint(req: MessageRequest):
-    qa = RetrievalQA.from_chain_type(llm=chat_upstage,
-                                     chain_type="stuff",
-                                     retriever=pinecone_retriever,
-                                     return_source_documents=True)
-
-    result = qa(req.message)
-    return {"reply": result['result']}
-
-
-# @app.post("/assistant")
-# async def assistant_endpoint(req: AssistantRequest):
-#     assistant = await openai.beta.assistants.retrieve("asst_tc4AhtsAjNJnRtpJmy1gjJOE")
-#
-#     if req.thread_id:
-#         # We have an existing thread, append user message
-#         await openai.beta.threads.messages.create(
-#             thread_id=req.thread_id, role="user", content=req.message
-#         )
-#         thread_id = req.thread_id
-#     else:
-#         # Create a new thread with user message
-#         thread = await openai.beta.threads.create(
-#             messages=[{"role": "user", "content": req.message}]
-#         )
-#         thread_id = thread.id
-#
-#     # Run and wait until complete
-#     await openai.beta.threads.runs.create_and_poll(
-#         thread_id=thread_id, assistant_id=assistant.id
-#     )
-#
-#     # Now retrieve messages for this thread
-#     # messages.list returns an async iterator, so let's gather them into a list
-#     all_messages = [
-#         m async for m in openai.beta.threads.messages.list(thread_id=thread_id)
-#     ]
-#     print(all_messages)
-#
-#     # The assistant's reply should be the last message with role=assistant
-#     assistant_reply = all_messages[0].content[0].text.value
-#
-#     return {"reply": assistant_reply, "thread_id": thread_id}
+    # Call the OpenAI ChatCompletion endpoint
+    response = await openai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": req.message},
+        ],
+        # temperature=0.7,
+    )
+    # Extract assistant message
+    assistant_reply = response.choices[0].message.content
+    return {"reply": assistant_reply}
 
 
-@app.get("/health")
-@app.get("/")
-async def health_check():
-    return {"status": "ok"}
+@app.post("/assistant")
+async def assistant_endpoint(req: MessageRequest):
+     assistant = openai.beta.assistants.create(
+        name="Devcorch",
+        instructions="You are a helpful assistant that answers user queries.",
+        model="gpt-4o-mini",
+    )
+    # 우리는 앞서 만든 assistant를 사용합니다.
+    #assistant = await openai.beta.assistants.retrieve("asst_jjSTOBjMS5aNgt5U8GcONkyO")
+
+    # Create a new thread with the user's message
+    thread = await openai.beta.threads.create(
+        messages=[{"role": "user", "content": req.message}]
+    )
+
+    # Create a run and poll until completion using the helper method
+    run = await openai.beta.threads.runs.create_and_poll(
+        thread_id=thread.id, assistant_id=assistant.id
+    )
+
+    # Get messages for this specific run
+    messages = list(
+        await openai.beta.threads.messages.list(thread_id=thread.id, run_id=run.id)
+    )
+
+    # Process the first message's content and annotations
+    message_content = messages[0][1][0].content[0].text
+    annotations = message_content.annotations
+    citations = []
+
+    # Replace annotations with citation markers and build citations list
+    for index, annotation in enumerate(annotations):
+        message_content.value = message_content.value.replace(
+            annotation.text, f"[{index}]"
+        )
+        if file_citation := getattr(annotation, "file_citation", None):
+            cited_file = await openai.files.retrieve(file_citation.file_id)
+            citations.append(f"[{index}] {cited_file.filename}")
+
+    # Combine message content with citations if any exist
+    assistant_reply = message_content.value
+    if citations:
+        assistant_reply += "\n\n" + "\n".join(citations)
+
+    return {"reply": assistant_reply}
 
 
 if __name__ == "__main__":
