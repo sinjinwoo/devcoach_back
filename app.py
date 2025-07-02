@@ -5,8 +5,10 @@ from openai import AsyncOpenAI
 import os
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
+from pathlib import Path
 
-load_dotenv()  # Load .env file if present
+env_path = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path=env_path) # Load .env file if present
 
 openai = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -22,35 +24,43 @@ app.add_middleware(
 )
 
 
-class MessageRequest(BaseModel):
-    message: str
+class ChatRequest(BaseModel):
+    position: str
+    question: str
+    answer: str 
+    des_req:str = ""
+      # Optional field for assistant's answer
 
 
 @app.post("/chat")
-async def chat_endpoint(req: MessageRequest):
+async def chat_endpoint(req: ChatRequest):
     # Call the OpenAI ChatCompletion endpoint
     response = await openai.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": req.message},
+            {"role": "user", "content": f'Position: {req.position}\nQuestion: {req.question}\nAnswer: {req.answer}\nDes_req: {req.des_req}'},
         ],
         # temperature=0.7,
     )
     # Extract assistant message
-    assistant_reply = response.choices[0].message.content
-    return {"reply": assistant_reply}
+    assistant_reply = response.choices[0].message.content.json()
+    return assistant_reply
 
-
+class AssistantRequest(BaseModel):
+    position: str
+    question: str
+    answer: str 
+    des_req:str = ""
 @app.post("/assistant")
-async def assistant_endpoint(req: MessageRequest):
-     assistant = openai.beta.assistants.create(
-        name="Devcorch",
-        instructions="You are a helpful assistant that answers user queries.",
-        model="gpt-4o-mini",
-    )
+async def assistant_endpoint(req: AssistantRequest):
+    #  assistant = openai.beta.assistants.create(
+    #     name="Devcorch",
+    #     instructions="You are a helpful assistant that answers user queries.",
+    #     model="gpt-4o-mini",
+    # )
     # 우리는 앞서 만든 assistant를 사용합니다.
-    #assistant = await openai.beta.assistants.retrieve("asst_jjSTOBjMS5aNgt5U8GcONkyO")
+    assistant = await openai.beta.assistants.retrieve("asst_jjSTOBjMS5aNgt5U8GcONkyO")
 
     # Create a new thread with the user's message
     thread = await openai.beta.threads.create(
