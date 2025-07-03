@@ -250,6 +250,7 @@ class AssistantRequest(BaseModel):
      
 @app.post("/assistant")
 async def assistant_endpoint(req: AssistantRequest):
+    # 파라미터 추출
     # 회사 
     company = req.company
     # 직무
@@ -269,10 +270,76 @@ async def assistant_endpoint(req: AssistantRequest):
     # 답변
     answer = req.answer
 
+    #  assistant = openai.beta.assistants.create(
+    #     name="Devcorch",
+    #     instructions="You are a helpful assistant that answers user queries.",
+    #     model="gpt-4o-mini",
+    # )
+    # 우리는 앞서 만든 assistant를 사용합니다.
+    assistant = await openai.beta.assistants.retrieve("asst_jjSTOBjMS5aNgt5U8GcONkyO")
 
-    print(f"Received company: {company}, position: {position}, qualifications: {qualifications}, requirements: {requirements}, duties: {duties}, preferred: {preferred}")
-    feedback = f"{req.company}의 {req.position} 직무 기준으로 첨삭을 완료했습니다."
-    return {"reply": feedback}
+    # 유저 메세지(user prompt) 생성
+    user_message = f"""
+    -회사: {company}
+    -직무: {position}
+    -자격요건: {qualifications}
+    -필수사항: {requirements}
+    -수행업무: {duties}
+    -우대사항: {preferred}
+    -인재상: {ideal}
+    
+    지원자 답변 정보
+    -질문: {question}
+    -답변: {answer}
+
+    ---
+
+    아래 내용을 중심으로 평가해주세요:
+    1. 이 답변이 해당 직무 및 인재상에 적합한지
+    2. 보완해야 할 점이 있다면 구체적으로
+    3. 가산점을 줄 수 있는 요소나 표현 제안
+
+    친절하고 구체적으로, 면접관 또는 커리어 코치의 시선으로 피드백을 작성해주세요.
+    """
+
+    # Create a new thread with the user's message
+    thread = await openai.beta.threads.create(
+        messages=[{"role": "user", "content": user_message}]
+    )
+
+    # Create a run and poll until completion using the helper method
+    run = await openai.beta.threads.runs.create_and_poll(
+        thread_id=thread.id, assistant_id=assistant.id
+    )
+
+    # Get messages for this specific run
+    messages = list(
+        await openai.beta.threads.messages.list(thread_id=thread.id, run_id=run.id)
+    )
+
+    # Process the first message's content and annotations
+    message_content = messages[0][1][0].content[0].text
+    annotations = message_content.annotations
+    citations = []
+
+    # Replace annotations with citation markers and build citations list
+    for index, annotation in enumerate(annotations):
+        message_content.value = message_content.value.replace(
+            annotation.text, f"[{index}]"
+        )
+        if file_citation := getattr(annotation, "file_citation", None):
+            cited_file = await openai.files.retrieve(file_citation.file_id)
+            citations.append(f"[{index}] {cited_file.filename}")
+
+    # Combine message content with citations if any exist
+    assistant_reply = message_content.value
+    if citations:
+        assistant_reply += "\n\n" + "\n".join(citations)
+    return {"reply": assistant_reply}
+  
+#   print(f"Received company: {company}, position: {position}, qualifications: {qualifications}, requirements: {requirements}, duties: {duties}, preferred: {preferred}")
+#   feedback = f"{req.company}의 {req.position} 직무 기준으로 첨삭을 완료했습니다."
+#   return {"reply": feedback}
 
 if __name__ == "__main__":
     import uvicorn
