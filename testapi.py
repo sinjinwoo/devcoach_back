@@ -10,6 +10,7 @@ from fastapi import Query
 from pathlib import Path
 from job_gpt import fetch_job_json_by_company
 from image_ocr import perform_ocr_to_txt_auto
+
 env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path) # Load .env file if present
 
@@ -305,7 +306,7 @@ async def assistant_endpoint(req: AssistantRequest):
     #     instructions="You are a helpful assistant that answers user queries.",
     #     model="gpt-4o-mini",
     # )
-    
+
     # 우리는 앞서 만든 assistant를 사용합니다.
     assistant = await openai.beta.assistants.retrieve("asst_jjSTOBjMS5aNgt5U8GcONkyO")
 
@@ -325,12 +326,15 @@ async def assistant_endpoint(req: AssistantRequest):
 
     ---
 
-    아래 내용을 중심으로 평가해주세요:
-    1. 이 답변이 해당 직무 및 인재상에 적합한지
-    2. 보완해야 할 점이 있다면 구체적으로
-    3. 가산점을 줄 수 있는 요소나 표현 제안
+    너는 ‘회사 맞춤형 자기소개서 코치’다.
+    목표: 지원자가 보낸 자기소개서 답변을 ⓐ질문 의도, ⓑ회사 인재상, ⓒ수행업무, ⓓ필수/우대 자격요건 네 축에 맞춰 평가하고,
+    강점·개선점·수정 등 예시를 600자 이내 한국어로 제시한다.
 
-    친절하고 구체적으로, 면접관 또는 커리어 코치의 시선으로 피드백을 작성해주세요.
+    규칙
+    1. 애매한 말 대신 입력에서 직접 인용해 근거를 명시한다.  
+    2. 제공되지 않은 정보(예: 담당 업무)가 있으면 무시하고 다른 평가요소에 대한 내용만 작성한다.
+    3. 말투는 사용자가 기분이 나쁘지 않도록 최대한 상냥한 말투로 작성한다.
+    4. 요청이 오지 않는 한 영어를 사용하지 않는다.  
     """
 
     # Create a new thread with the user's message
