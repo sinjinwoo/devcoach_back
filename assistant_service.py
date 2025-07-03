@@ -11,8 +11,8 @@ Features
 """
 
 import os
-from openai import AsyncOpenAI
-from openai.error import OpenAIError
+from openai import OpenAIError, AsyncOpenAI
+from thread_manager import get_or_create_thread
 
 # 비동기 클라이언트
 openai = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -34,6 +34,8 @@ async def run_assistant(assistant_id: str, request_data: dict) -> str:
     str
         Assistant의 응답 메시지
     """
+    # 0 thread 확보
+    thread_id = await get_or_create_thread(session_key)
 
     # 1️⃣ user_message 구성
     user_message = f"""
