@@ -250,6 +250,7 @@ class AssistantRequest(BaseModel):
      
 @app.post("/assistant")
 async def assistant_endpoint(req: AssistantRequest):
+    
     # 파라미터 추출
     # 회사 
     company = req.company
