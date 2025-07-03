@@ -17,8 +17,6 @@ openai = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 app = FastAPI()
 
-path = "C:\Users\SSAFY\Desktop\revison_back\devcoach_back"
-
 # Allow CORS for local dev
 app.add_middleware(
     CORSMiddleware,
@@ -63,7 +61,7 @@ async def chat_endpoint(req: JobDescriptionRequest):
 
     fetch_and_store_job_content(url, company) # 직무 txt파일로 뽑기
 
-    is_ocr_success = perform_ocr_to_txt_auto(company, image_dir="./", output_dir="./") # 이미지파일 직무 txt파일로 뽑기
+    is_ocr_success = perform_ocr_to_txt_auto(company) # 이미지파일 직무 txt파일로 뽑기
 
     if is_ocr_success == None:
         print('ocr 된 게 없습니다.')
@@ -307,6 +305,7 @@ async def assistant_endpoint(req: AssistantRequest):
     #     instructions="You are a helpful assistant that answers user queries.",
     #     model="gpt-4o-mini",
     # )
+    
     # 우리는 앞서 만든 assistant를 사용합니다.
     assistant = await openai.beta.assistants.retrieve("asst_jjSTOBjMS5aNgt5U8GcONkyO")
 
