@@ -1,12 +1,19 @@
 # 실행 전 꼭 읽어 주세요!
-.env 생성 시 주의 사항
-문자열 없이 입력해주세요!
-.env
+> .env 생성 시 주의 사항
+> 문자열 없이 입력해주세요!
+> .env
 ---
+```
 OPENAI_API_KEY=
 UPSTAGE_API_KEY=
 PINECONE_API_KEY=
----
+```
+
+# ✨ DeCo (DevCoach) : 시연 영상 링크!
+
+[![DevCoach 시연 영상](https://img.youtube.com/vi/kSxqWyhr2Qw/0.jpg)](https://youtu.be/kSxqWyhr2Qw?si=DCFy9FI1J1GFa5ce)
+
+👉 [유튜브에서 보기](https://youtu.be/kSxqWyhr2Qw?si=DCFy9FI1J1GFa5ce)
 
 # ✨ DeCo (DevCoach): AI 기반 자기소개서 첨삭 서비스
 
