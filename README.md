@@ -1,3 +1,13 @@
+# 실행 전 꼭 읽어 주세요!
+.env 생성 시 주의 사항
+문자열 없이 입력해주세요!
+.env
+---
+OPENAI_API_KEY=
+UPSTAGE_API_KEY=
+PINECONE_API_KEY=
+---
+
 # ✨ DeCo (DevCoach): AI 기반 자기소개서 첨삭 서비스
 
 > "합격에 가까워지는 글쓰기, DeCo가 함께합니다."  
